@@ -295,7 +295,7 @@ def webhook_ckato():
     ).strip().lower()
 
     # Só processa eventos de pagamento aprovado
-    approved_events = {"payment.approved", "order.approved", "approved", "paid", "complete", "completed"}
+        approved_events = {"payment.approved", "order.approved", "approved", "paid", "complete", "completed", "purchase_approved", "purchase.approved"}
     is_approved = str(event_type).lower() in approved_events
 
     # Alguns webhooks do Ckato têm status aninhado em "payment"
