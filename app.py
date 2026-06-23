@@ -20,12 +20,10 @@ import uuid
 import json
 import sqlite3
 import hashlib
-import requests as http_requests
 import secrets
 import string
+import requests as http_requests
 from datetime import datetime, timedelta
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
 from flask import Flask, request, jsonify
 
 app = Flask(__name__)
@@ -38,10 +36,8 @@ CKATO_WEBHOOK_SECRET = os.environ.get("CKATO_WEBHOOK_SECRET", "")
 
 # Chave API do Brevo (https://app.brevo.com) — para envio de emails via HTTP
 BREVO_API_KEY     = os.environ.get("BREVO_API_KEY", "")
-SMTP_PORT         = int(os.environ.get("SMTP_PORT", "587"))
-SMTP_USER         = os.environ.get("SMTP_USER", "")          # seu-email@gmail.com
-SMTP_PASSWORD     = os.environ.get("SMTP_PASSWORD", "")      # Senha de App do Gmail
 EMAIL_FROM_NAME   = os.environ.get("EMAIL_FROM_NAME", "Pexels Pro Downloader")
+EMAIL_FROM_ADDR   = os.environ.get("EMAIL_FROM_ADDR", "canaldofenix649@gmail.com")
 
 # Chave interna para proteger o endpoint /activate contra uso não autorizado
 ACTIVATION_API_KEY = os.environ.get("ACTIVATION_API_KEY", "mude-esta-chave-secreta")
@@ -132,9 +128,9 @@ def create_license(email, ckato_order=None, days=None):
 # ==============================================================
 
 def send_activation_email(to_email, license_code, expires_at_str):
-    """Envia o código de ativação por email para o cliente."""
+    """Envia o código de ativação via Brevo HTTP API."""
     if not BREVO_API_KEY:
-        print(f"[EMAIL] SMTP não configurado. Código gerado: {license_code} para {to_email}")
+        print(f"[EMAIL] BREVO_API_KEY não configurado. Código gerado: {license_code} para {to_email}")
         return False
 
     try:
@@ -206,24 +202,31 @@ def send_activation_email(to_email, license_code, expires_at_str):
     </html>
     """
 
-    msg = MIMEMultipart("alternative")
-    msg["Subject"] = subject
-    msg["From"]    = f"{EMAIL_FROM_NAME} <{SMTP_USER}>"
-    msg["To"]      = to_email
-    msg.attach(MIMEText(html_body, "html", "utf-8"))
+    payload = {
+        "sender": {"name": EMAIL_FROM_NAME, "email": EMAIL_FROM_ADDR},
+        "to": [{"email": to_email}],
+        "subject": subject,
+        "htmlContent": html_body
+    }
 
     try:
         resp = http_requests.post(
             "https://api.brevo.com/v3/smtp/email",
-            json={"sender": {"name": EMAIL_FROM_NAME, "email": "canaldofenix649@gmail.com"}, "to": [{"email": to_email}], "subject": subject, "htmlContent": html_body},
-            headers={"api-key": BREVO_API_KEY, "Content-Type": "application/json"},
+            json=payload,
+            headers={
+                "api-key": BREVO_API_KEY,
+                "Content-Type": "application/json"
+            },
             timeout=15
         )
         if resp.status_code in (200, 201):
-        print(f"[EMAIL] Enviado com sucesso para {to_email} (código: {license_code})")
-        return True
+            print(f"[EMAIL] Enviado com sucesso via Brevo para {to_email} (código: {license_code})")
+            return True
+        else:
+            print(f"[EMAIL] Brevo retornou erro {resp.status_code}: {resp.text}")
+            return False
     except Exception as e:
-        print(f"[EMAIL] Erro ao enviar para {to_email}: {e}")
+        print(f"[EMAIL] Erro ao enviar via Brevo para {to_email}: {e}")
         return False
 
 # ==============================================================
