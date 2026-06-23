@@ -133,7 +133,7 @@ def create_license(email, ckato_order=None, days=None):
 
 def send_activation_email(to_email, license_code, expires_at_str):
     """Envia o código de ativação por email para o cliente."""
-    if not SMTP_USER or not SMTP_PASSWORD:
+    if not BREVO_API_KEY:
         print(f"[EMAIL] SMTP não configurado. Código gerado: {license_code} para {to_email}")
         return False
 
@@ -213,11 +213,13 @@ def send_activation_email(to_email, license_code, expires_at_str):
     msg.attach(MIMEText(html_body, "html", "utf-8"))
 
     try:
-        with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
-            server.ehlo()
-            server.starttls()
-            server.login(SMTP_USER, SMTP_PASSWORD)
-            server.sendmail(SMTP_USER, to_email, msg.as_string())
+        resp = http_requests.post(
+            "https://api.brevo.com/v3/smtp/email",
+            json={"sender": {"name": EMAIL_FROM_NAME, "email": "canaldofenix649@gmail.com"}, "to": [{"email": to_email}], "subject": subject, "htmlContent": html_body},
+            headers={"api-key": BREVO_API_KEY, "Content-Type": "application/json"},
+            timeout=15
+        )
+        if resp.status_code in (200, 201):
         print(f"[EMAIL] Enviado com sucesso para {to_email} (código: {license_code})")
         return True
     except Exception as e:
