@@ -20,7 +20,7 @@ import uuid
 import json
 import sqlite3
 import hashlib
-import smtplib
+import requests as http_requests
 import secrets
 import string
 from datetime import datetime, timedelta
@@ -36,8 +36,8 @@ app = Flask(__name__)
 # Chave secreta para validar webhooks do Ckato (copie do painel do Ckato)
 CKATO_WEBHOOK_SECRET = os.environ.get("CKATO_WEBHOOK_SECRET", "")
 
-# Suas credenciais de email para envio automático (recomendado: Gmail com App Password)
-SMTP_HOST         = os.environ.get("SMTP_HOST", "smtp.gmail.com")
+# Chave API do Brevo (https://app.brevo.com) — para envio de emails via HTTP
+BREVO_API_KEY     = os.environ.get("BREVO_API_KEY", "")
 SMTP_PORT         = int(os.environ.get("SMTP_PORT", "587"))
 SMTP_USER         = os.environ.get("SMTP_USER", "")          # seu-email@gmail.com
 SMTP_PASSWORD     = os.environ.get("SMTP_PASSWORD", "")      # Senha de App do Gmail
