@@ -283,21 +283,40 @@ def webhook_ckato():
 
     # -------------------------------------------------------
     # Extrai dados do payload do Ckato
-    # O Ckato envia um objeto com informações do pedido.
-    # Os campos abaixo são os mais comuns — ajuste se necessário
-    # após conferir o payload real no painel do Ckato.
     # -------------------------------------------------------
     event_type  = data.get("event") or data.get("type") or data.get("status", "")
-    customer    = data.get("customer") or data.get("buyer") or {}
     order_id    = (data.get("order") or {}).get("id") or data.get("order_id") or data.get("id", "")
 
-    # Email do comprador (tenta vários campos que o Ckato pode enviar)
-    customer_email = (
-        customer.get("email") or
-        data.get("email") or
-        data.get("customer_email") or
-        ""
-    ).strip().lower()
+    def find_email_recursive(obj, depth=0):
+        """Busca qualquer email válido em qualquer lugar do JSON."""
+        if depth > 6:
+            return ""
+        if isinstance(obj, dict):
+            # Tenta campos comuns primeiro
+            for key in ("email", "customer_email", "buyer_email", "payer_email", "e_mail"):
+                val = obj.get(key, "")
+                if isinstance(val, str) and "@" in val and "." in val:
+                    return val.strip().lower()
+            # Tenta sub-objetos comuns do Cakto
+            for key in ("customer", "buyer", "subscriber", "payer", "client",
+                        "sale", "purchase", "transaction", "data", "order", "lead"):
+                if key in obj:
+                    found = find_email_recursive(obj[key], depth + 1)
+                    if found:
+                        return found
+            # Varredura completa em todos os campos
+            for val in obj.values():
+                found = find_email_recursive(val, depth + 1)
+                if found:
+                    return found
+        elif isinstance(obj, list):
+            for item in obj:
+                found = find_email_recursive(item, depth + 1)
+                if found:
+                    return found
+        return ""
+
+    customer_email = find_email_recursive(data)
 
     # Só processa eventos de pagamento aprovado
     approved_events = {"payment.approved", "order.approved", "approved", "paid", "complete", "completed", "purchase_approved", "purchase.approved"}
